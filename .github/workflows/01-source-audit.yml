@@ -1,0 +1,56 @@
+name: HIGHFLY ORIGIN — clean original ClaudeCraft source audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/01-source-audit.yml'
+      - 'tools/audit-original.mjs'
+      - 'RIGHTS_MATRIX.md'
+      - 'README.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: highfly-origin-source-inventory
+  cancel-in-progress: true
+
+jobs:
+  audit-exact-upstream:
+    name: Verify original v0.20 source and identify redistribution risks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ONLY the clean HIGHFLY ORIGIN repository
+        uses: actions/checkout@v4
+        with:
+          path: highfly
+          persist-credentials: false
+      - name: Checkout ONLY the original developer source (NEVER an old HIGHFLY branch)
+        uses: actions/checkout@v4
+        with:
+          repository: levy-street/world-of-claudecraft
+          ref: 4cedc7fbf49e7179f4c29b3db2d0b2bc5bab3d25
+          path: upstream
+          persist-credentials: false
+      - name: Prove upstream commit SHA
+        shell: bash
+        run: |
+          test "$(git -C upstream rev-parse HEAD)" = "4cedc7fbf49e7179f4c29b3db2d0b2bc5bab3d25"
+          test -f upstream/LICENSE
+          test -f upstream/CREDITS.md
+          echo "ORIGINAL_CLAUDECRAFT_V020_PIN_VERIFIED"
+      - name: Inventory original rights and all basic weapon/icon references
+        run: node highfly/tools/audit-original.mjs upstream highfly/audit-reports/upstream-v020.json
+      - name: Upload JSON rights and source inventory (NEVER bundled game art)
+        uses: actions/upload-artifact@v4
+        with:
+          name: highfly-origin-v020-original-source-inventory
+          path: highfly/audit-reports/upstream-v020.json
+          if-no-files-found: error
+      - name: State exactly what GREEN means
+        run: |
+          echo "SOURCE_INVENTORY_GREEN_NOT_ART_CLEARANCE"
+          echo "No original game, game build, media, premium icons or compiled website has been published."
+          echo "Next step: per-file rights clearance and exact clean version."
